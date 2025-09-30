@@ -7,3 +7,5 @@ Download latest extension .zip https://github.com/A2R14N/Rust-drops-checkmark/re
 Load Unpacked
 
 refresh https://twitch.facepunch.com/#drops
+
+![Preview](https://github.com/A2R14N/Rust-drops-checkmark/blob/main/image.png)
