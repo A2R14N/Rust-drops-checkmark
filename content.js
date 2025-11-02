@@ -5,7 +5,8 @@ async function loadCollected() {
         return await new Promise(res => {
             chrome.storage.sync.get([STORAGE_KEY], obj => res(obj?.[STORAGE_KEY] || {}));
         });
-    } catch {
+    } catch (err) {
+        console.error('Failed to load collected items:', err);
         return {};
     }
 }
@@ -15,8 +16,15 @@ async function saveCollected(collected) {
         const o = {};
         o[STORAGE_KEY] = collected;
         await new Promise(res => chrome.storage.sync.set(o, res));
-    } catch {}
+    } catch (err) {
+        console.error('Failed to save collected items:', err);
+    }
 }
+
+// Detect platform and set colors
+const isKick = window.location.hostname.includes('kick');
+const primaryColor = isKick ? '#53fc18' : '#ff7e2d';
+const primaryColorRgb = isKick ? '83, 252, 24' : '255, 126, 45';
 
 // Inject FontAwesome if not present
 (function injectFontAwesome() {
@@ -25,38 +33,52 @@ async function saveCollected(collected) {
         link.id = 'fp-fa-css';
         link.rel = 'stylesheet';
         link.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css';
+        link.integrity = 'sha512-z3gLpd7yknf1YoNbCzqRKc4qyor8gaKU1qmn+CShxbuBusANI9QpRohGBreCFkKxLhei6S9CQXFEbbKuqLg0DA==';
+        link.crossOrigin = 'anonymous';
         document.head.appendChild(link);
     }
 })();
 
 let attachScheduled = false;
+const processedButtons = new WeakSet();
 
 async function attachButtons() {
     if (attachScheduled) return;
     attachScheduled = true;
+    
     setTimeout(async () => {
         attachScheduled = false;
         const collected = await loadCollected();
 
         document.querySelectorAll('.drop-box-body').forEach(body => {
-            if (body.querySelector('.fp-mark-btn')) return;
+            if (processedButtons.has(body)) return;
+            
             body.style.position = 'relative';
 
             const dropBox = body.closest('.drop-box');
-            let id = dropBox?.dataset.itemId 
+            
+            let id = dropBox?.id
+                || dropBox?.dataset.streamerHash
+                || dropBox?.dataset.itemId 
                 || dropBox?.querySelector('[data-itemid]')?.dataset.itemid
                 || body.querySelector('img')?.src
-                || body.querySelector('video source')?.src
-                || body.innerText.trim();
+                || body.querySelector('video source')?.src;
+            
+            if (!id) {
+                const text = body.innerText.trim();
+                id = `text_${hashString(text)}`;
+            }
 
             const btn = document.createElement('button');
             btn.className = 'fp-mark-btn';
+            btn.setAttribute('aria-label', collected[id] ? "Unmark as collected" : "Mark as collected");
             btn.title = collected[id] ? "Unmark as collected" : "Mark as collected";
+            
             if (collected[id]) {
-                btn.innerHTML = `<i class="fa-solid fa-check fp-check"></i>`;
+                btn.innerHTML = `<i class="fa-solid fa-check fp-check" aria-hidden="true"></i>`;
                 btn.classList.add("collected");
             } else {
-                btn.innerHTML = `<i class="fa-solid fa-plus fp-plus"></i>`;
+                btn.innerHTML = `<i class="fa-solid fa-plus fp-plus" aria-hidden="true"></i>`;
             }
 
             btn.addEventListener("click", async (e) => {
@@ -68,19 +90,33 @@ async function attachButtons() {
                 await saveCollected(current);
 
                 if (current[id]) {
-                    btn.innerHTML = `<i class="fa-solid fa-check fp-check"></i>`;
+                    btn.innerHTML = `<i class="fa-solid fa-check fp-check" aria-hidden="true"></i>`;
                     btn.classList.add("collected");
                     btn.title = "Unmark as collected";
+                    btn.setAttribute('aria-label', "Unmark as collected");
                 } else {
-                    btn.innerHTML = `<i class="fa-solid fa-plus fp-plus"></i>`;
+                    btn.innerHTML = `<i class="fa-solid fa-plus fp-plus" aria-hidden="true"></i>`;
                     btn.classList.remove("collected");
                     btn.title = "Mark as collected";
+                    btn.setAttribute('aria-label', "Mark as collected");
                 }
             });
 
             body.appendChild(btn);
+            processedButtons.add(body);
         });
-    }, 50);
+    }, 100);
+}
+
+// Simple string hash function for fallback IDs
+function hashString(str) {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+        const char = str.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash;
+    }
+    return Math.abs(hash).toString(36);
 }
 
 (function injectButtonCSS() {
@@ -95,7 +131,7 @@ async function attachButtons() {
         z-index: 30;
         background: #181a20;
         color: inherit;
-        border: 2px solid #ff7e2d;
+        border: 2px solid ${primaryColor};
         border-radius: 50%;
         width: 32px;
         height: 32px;
@@ -105,7 +141,7 @@ async function attachButtons() {
         padding: 0;
         display: grid;
         place-items: center;
-        box-shadow: 0 0 10px 2px #ff7e2d, 0 0 0 0 #ff7e2d;
+        box-shadow: 0 0 10px 2px ${primaryColor}, 0 0 0 0 ${primaryColor};
         cursor: pointer;
         transition: background 0.18s, color 0.18s, border 0.18s, box-shadow 0.18s, transform 0.18s cubic-bezier(.4,2,.3,1);
         outline: none;
@@ -116,12 +152,16 @@ async function attachButtons() {
     .fp-mark-btn:hover {
         background: #23262f;
         color: #fff;
-        border-color: #ff7e2d;
-        box-shadow: 0 0 18px #ff7e2d, 0 2px 12px rgba(255,126,45,0.18);
+        border-color: ${primaryColor};
+        box-shadow: 0 0 18px ${primaryColor}, 0 2px 12px rgba(${primaryColorRgb},0.18);
         transform: scale(1.08);
     }
+    .fp-mark-btn:focus-visible {
+        outline: 2px solid ${primaryColor};
+        outline-offset: 2px;
+    }
     .fp-plus {
-        color: #ff7e2d !important;
+        color: ${primaryColor} !important;
         font-size: 24px;
         line-height: 1;
         display: block;
@@ -137,7 +177,7 @@ async function attachButtons() {
     }
     .fp-mark-btn:active {
         transform: scale(0.93);
-        box-shadow: 0 0 8px #ff7e2d;
+        box-shadow: 0 0 8px ${primaryColor};
     }
     .fp-mark-btn.collected {
         background: rgba(34,197,94,0.18);
@@ -160,7 +200,15 @@ async function attachButtons() {
     document.head.appendChild(style);
 })();
 
-const observer = new MutationObserver(() => attachButtons());
-observer.observe(document.body, { childList: true, subtree: true });
-
-attachButtons();
+// Wait for page to be fully ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        attachButtons();
+        const observer = new MutationObserver(() => attachButtons());
+        observer.observe(document.body, { childList: true, subtree: true });
+    });
+} else {
+    attachButtons();
+    const observer = new MutationObserver(() => attachButtons());
+    observer.observe(document.body, { childList: true, subtree: true });
+}
