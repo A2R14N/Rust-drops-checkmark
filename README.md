@@ -23,7 +23,7 @@ A browser extension that adds a manual checkmark button to the Facepunch Rust dr
    - **Opera**: Navigate to `opera://extensions/`
 4. Enable **Developer Mode** (toggle in the top-right corner)
 5. Click **Load Unpacked** and select the extracted folder
-6. Navigate to [https://twitch.facepunch.com/#drops](https://twitch.facepunch.com/#drops)
+6. Navigate to [https://twitch.facepunch.com/](https://twitch.facepunch.com/) or [https://kick.facepunch.com/](https://kick.facepunch.com/)
 7. Refresh the page to activate the extension
 
 ## Screenshots
