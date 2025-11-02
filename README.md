@@ -9,3 +9,5 @@ Load Unpacked
 refresh https://twitch.facepunch.com/#drops
 
 ![Preview](https://github.com/A2R14N/Rust-drops-checkmark/blob/main/image.png)
+
+![Preview2](https://github.com/A2R14N/Rust-drops-checkmark/blob/main/image-2.png)
