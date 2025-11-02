@@ -1,32 +1,70 @@
 const STORAGE_KEY = 'fp_drops_collected_v1';
 
+function isExtensionValid() {
+    try {
+        return !!(chrome && chrome.runtime && chrome.runtime.id);
+    } catch {
+        return false;
+    }
+}
+
 async function loadCollected() {
     try {
-        return await new Promise(res => {
-            chrome.storage.sync.get([STORAGE_KEY], obj => res(obj?.[STORAGE_KEY] || {}));
+        if (!isExtensionValid()) {
+            const fallback = localStorage.getItem(STORAGE_KEY);
+            return fallback ? JSON.parse(fallback) : {};
+        }
+        
+        return await new Promise((resolve) => {
+            try {
+                chrome.storage.sync.get([STORAGE_KEY], (obj) => {
+                    if (chrome.runtime.lastError) {
+                        const fallback = localStorage.getItem(STORAGE_KEY);
+                        resolve(fallback ? JSON.parse(fallback) : {});
+                        return;
+                    }
+                    const data = (obj && obj[STORAGE_KEY]) || {};
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+                    resolve(data);
+                });
+            } catch {
+                const fallback = localStorage.getItem(STORAGE_KEY);
+                resolve(fallback ? JSON.parse(fallback) : {});
+            }
         });
-    } catch (err) {
-        console.error('Failed to load collected items:', err);
-        return {};
+    } catch {
+        const fallback = localStorage.getItem(STORAGE_KEY);
+        return fallback ? JSON.parse(fallback) : {};
     }
 }
 
 async function saveCollected(collected) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(collected));
+    
+    if (!isExtensionValid()) {
+        return;
+    }
+    
     try {
         const o = {};
         o[STORAGE_KEY] = collected;
-        await new Promise(res => chrome.storage.sync.set(o, res));
-    } catch (err) {
-        console.error('Failed to save collected items:', err);
+        await new Promise((resolve) => {
+            try {
+                chrome.storage.sync.set(o, () => {
+                    resolve();
+                });
+            } catch {
+                resolve();
+            }
+        });
+    } catch {
     }
 }
 
-// Detect platform and set colors
 const isKick = window.location.hostname.includes('kick');
 const primaryColor = isKick ? '#53fc18' : '#ff7e2d';
 const primaryColorRgb = isKick ? '83, 252, 24' : '255, 126, 45';
 
-// Inject FontAwesome if not present
 (function injectFontAwesome() {
     if (!document.getElementById('fp-fa-css')) {
         const link = document.createElement('link');
@@ -57,16 +95,24 @@ async function attachButtons() {
 
             const dropBox = body.closest('.drop-box');
             
-            let id = dropBox?.id
-                || dropBox?.dataset.streamerHash
-                || dropBox?.dataset.itemId 
-                || dropBox?.querySelector('[data-itemid]')?.dataset.itemid
-                || body.querySelector('img')?.src
-                || body.querySelector('video source')?.src;
+            let id = null;
             
-            if (!id) {
-                const text = body.innerText.trim();
-                id = `text_${hashString(text)}`;
+            if (dropBox && dropBox.id) {
+                id = dropBox.id;
+            } else {
+                const videoSource = body.querySelector('video source');
+                const img = body.querySelector('img');
+                
+                if (videoSource && videoSource.src) {
+                    id = videoSource.src;
+                } else if (img && img.src) {
+                    id = img.src;
+                } else if (dropBox && dropBox.dataset && dropBox.dataset.streamerHash) {
+                    id = dropBox.dataset.streamerHash;
+                } else {
+                    const text = body.innerText.trim();
+                    id = `text_${hashString(text)}`;
+                }
             }
 
             const btn = document.createElement('button');
@@ -108,7 +154,6 @@ async function attachButtons() {
     }, 100);
 }
 
-// Simple string hash function for fallback IDs
 function hashString(str) {
     let hash = 0;
     for (let i = 0; i < str.length; i++) {
@@ -128,7 +173,7 @@ function hashString(str) {
         position: absolute;
         top: 8px;
         right: 8px;
-        z-index: 30;
+        z-index: 9999 !important;
         background: #181a20;
         color: inherit;
         border: 2px solid ${primaryColor};
@@ -148,6 +193,7 @@ function hashString(str) {
         user-select: none;
         opacity: 0.97;
         backdrop-filter: blur(2px);
+        pointer-events: auto;
     }
     .fp-mark-btn:hover {
         background: #23262f;
@@ -196,11 +242,14 @@ function hashString(str) {
     .drop-box-body {
         position: relative !important;
     }
+    
+    .drop-lock {
+        pointer-events: none;
+    }
     `;
     document.head.appendChild(style);
 })();
 
-// Wait for page to be fully ready
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
         attachButtons();
