@@ -8,14 +8,20 @@ A browser extension that adds a manual checkmark button to the Facepunch Rust dr
 - 🎮 Only interacts with the Facepunch drops page - doesn't track or modify Twitch/Kick
 - 📊 Keep track of which drops you've claimed
 
+## Requirements
+
+- Chromium-based browser (Chrome, Edge, Brave, Opera, etc.)
+
 ## Installation
 
 1. Download the latest extension `.zip` file from the [Releases](https://github.com/A2R14N/Rust-drops-checkmark/releases) page
 2. Extract the `.zip` file to a folder on your computer
 3. Open your browser's extension management page:
-   - **Chrome/Edge**: Navigate to `chrome://extensions/` or `edge://extensions/`
-   - **Firefox**: Navigate to `about:debugging#/runtime/this-firefox`
-4. Enable **Developer Mode** (usually a toggle in the top-right corner)
+   - **Chrome**: Navigate to `chrome://extensions/`
+   - **Edge**: Navigate to `edge://extensions/`
+   - **Brave**: Navigate to `brave://extensions/`
+   - **Opera**: Navigate to `opera://extensions/`
+4. Enable **Developer Mode** (toggle in the top-right corner)
 5. Click **Load Unpacked** and select the extracted folder
 6. Navigate to [https://twitch.facepunch.com/#drops](https://twitch.facepunch.com/#drops)
 7. Refresh the page to activate the extension
